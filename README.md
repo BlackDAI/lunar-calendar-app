@@ -1,0 +1,40 @@
+# 日常日历 Android App
+
+这是一个原生 Android 日历应用第一版，打开后直接进入月历。
+
+当前版本用于功能原型验证，包名为 `com.dailycalendar.app`。
+
+## 已实现
+
+- 月历视图，支持切换上个月、下个月和回到今天。
+- 点击日期后，在下方显示当天详情。
+- 支持新增生日或纪念日。
+- 新增提醒时可选择：
+  - 农历提醒：例如农历 6 月 12 日，每年农历 6 月 12 日显示。
+  - 公历提醒：例如公历 10 月 1 日，每年公历 10 月 1 日显示。
+- 按农历月份显示应季水果和蔬菜。
+- 显示常见农历节日。
+- 内置 2026 年二十四节气。
+- 内置 2026 年节假日和调休标记。
+- 颜色区分：
+  - 红橙色：生日/纪念日
+  - 绿色：应季水果蔬菜
+  - 蓝色：节气
+  - 红色：节假日
+  - 紫色：调休上班
+
+## 打开方式
+
+用 Android Studio 打开 `DailyCalendarApp` 文件夹，等待 Gradle 同步完成后运行 `app`。
+
+## GitHub 云端打包
+
+项目已经包含 GitHub Actions 配置：`.github/workflows/android-build.yml`。
+
+导入 GitHub 后，进入仓库的 `Actions` 页面，运行 `Android Build`。构建成功后，在本次运行页面底部的 `Artifacts` 下载 `daily-calendar-debug-apk`，里面就是 debug APK。
+
+## 后续建议
+
+- 每年更新 `CalendarData.java` 中的节假日、调休和节气数据。
+- 如果需要真正的系统通知提醒，可以继续加入 `AlarmManager` 或 `WorkManager`。
+- 如果需要云同步，可以继续加入账号和远程数据库。
