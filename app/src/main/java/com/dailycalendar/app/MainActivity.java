@@ -2,10 +2,13 @@ package com.dailycalendar.app;
 
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -17,6 +20,9 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -24,6 +30,10 @@ import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends android.app.Activity {
+    private static final int REQ_EXPORT_BACKUP = 1001;
+    private static final int REQ_IMPORT_BACKUP = 1002;
+    private static final String FRUIT_MARK = "\uD83C\uDF51";
+
     private final Calendar visibleMonth = Calendar.getInstance();
     private final Calendar selectedDate = Calendar.getInstance();
     private final SimpleDateFormat titleFormat = new SimpleDateFormat("yyyy年M月", Locale.CHINA);
@@ -36,6 +46,8 @@ public class MainActivity extends android.app.Activity {
     private TextView monthTitle;
     private GridLayout calendarGrid;
     private LinearLayout detailList;
+    private float downX;
+    private float downY;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,10 +71,7 @@ public class MainActivity extends android.app.Activity {
         top.setPadding(dp(14), dp(14), dp(14), dp(8));
 
         Button previous = smallButton("<");
-        previous.setOnClickListener(v -> {
-            visibleMonth.add(Calendar.MONTH, -1);
-            render();
-        });
+        previous.setOnClickListener(v -> moveMonth(-1));
 
         monthTitle = new TextView(this);
         monthTitle.setTextSize(22);
@@ -73,15 +82,12 @@ public class MainActivity extends android.app.Activity {
         top.addView(monthTitle, new LinearLayout.LayoutParams(0, dp(42), 1));
 
         Button next = smallButton(">");
-        next.setOnClickListener(v -> {
-            visibleMonth.add(Calendar.MONTH, 1);
-            render();
-        });
+        next.setOnClickListener(v -> moveMonth(1));
         top.addView(next, new LinearLayout.LayoutParams(dp(46), dp(42)));
         root.addView(top);
 
         LinearLayout toolbar = new LinearLayout(this);
-        toolbar.setPadding(dp(14), 0, dp(14), dp(10));
+        toolbar.setPadding(dp(10), 0, dp(10), dp(8));
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
         Button today = actionButton("今天");
         today.setOnClickListener(v -> {
@@ -91,13 +97,19 @@ public class MainActivity extends android.app.Activity {
             visibleMonth.set(Calendar.DAY_OF_MONTH, 1);
             render();
         });
-        Button addEvent = actionButton("+ 日程");
+        Button addEvent = actionButton("+日程");
         addEvent.setOnClickListener(v -> showAddEventDialog());
-        Button addFruit = actionButton("+ 水果");
+        Button addFruit = actionButton("+水果");
         addFruit.setOnClickListener(v -> showAddFruitDialog());
+        Button backup = actionButton("备份");
+        backup.setOnClickListener(v -> exportBackup());
+        Button restore = actionButton("导入");
+        restore.setOnClickListener(v -> importBackup());
         toolbar.addView(today, new LinearLayout.LayoutParams(0, dp(42), 1));
         toolbar.addView(addEvent, new LinearLayout.LayoutParams(0, dp(42), 1));
         toolbar.addView(addFruit, new LinearLayout.LayoutParams(0, dp(42), 1));
+        toolbar.addView(backup, new LinearLayout.LayoutParams(0, dp(42), 1));
+        toolbar.addView(restore, new LinearLayout.LayoutParams(0, dp(42), 1));
         root.addView(toolbar);
 
         LinearLayout week = new LinearLayout(this);
@@ -116,6 +128,7 @@ public class MainActivity extends android.app.Activity {
         calendarGrid = new GridLayout(this);
         calendarGrid.setColumnCount(7);
         calendarGrid.setPadding(dp(8), 0, dp(8), dp(6));
+        calendarGrid.setOnTouchListener(this::handleSwipe);
         root.addView(calendarGrid);
 
         ScrollView detailScroll = new ScrollView(this);
@@ -148,9 +161,10 @@ public class MainActivity extends android.app.Activity {
     private View dayCell(Calendar date) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(dp(5), dp(4), dp(5), dp(3));
+        box.setPadding(dp(5), dp(3), dp(5), dp(3));
         box.setBackgroundColor(cellBackground(date));
         box.setGravity(Gravity.CENTER_HORIZONTAL);
+        box.setOnTouchListener(this::handleSwipe);
         box.setOnClickListener(v -> {
             selectedDate.setTime(date.getTime());
             if (date.get(Calendar.MONTH) != visibleMonth.get(Calendar.MONTH)) {
@@ -160,13 +174,21 @@ public class MainActivity extends android.app.Activity {
             render();
         });
 
+        LinearLayout topRow = new LinearLayout(this);
+        topRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView day = new TextView(this);
         day.setText(String.valueOf(date.get(Calendar.DAY_OF_MONTH)));
         day.setTextSize(17);
         day.setTypeface(Typeface.DEFAULT_BOLD);
         day.setGravity(Gravity.CENTER);
         day.setTextColor(date.get(Calendar.MONTH) == visibleMonth.get(Calendar.MONTH) ? Color.rgb(25, 34, 42) : Color.rgb(156, 164, 172));
-        box.addView(day, new LinearLayout.LayoutParams(-1, dp(22)));
+        TextView fruitMark = new TextView(this);
+        fruitMark.setText(hasFruitInSeason(date) ? FRUIT_MARK : "");
+        fruitMark.setTextSize(12);
+        fruitMark.setGravity(Gravity.RIGHT);
+        topRow.addView(day, new LinearLayout.LayoutParams(0, dp(22), 1));
+        topRow.addView(fruitMark, new LinearLayout.LayoutParams(dp(18), dp(22)));
+        box.addView(topRow, new LinearLayout.LayoutParams(-1, dp(22)));
 
         TextView lunar = new TextView(this);
         lunar.setText(CalendarData.toLunar(date).text());
@@ -175,11 +197,10 @@ public class MainActivity extends android.app.Activity {
         lunar.setTextColor(Color.rgb(100, 112, 122));
         box.addView(lunar, new LinearLayout.LayoutParams(-1, dp(18)));
 
-        List<DayNote> notes = CalendarData.notesFor(date, events, fruits);
         int shown = 0;
-        for (DayNote note : notes) {
+        for (DayNote note : CalendarData.notesFor(date, events, fruits)) {
             if (shown >= 2) break;
-            if (CalendarData.TYPE_PRODUCE.equals(note.type)) continue;
+            if (CalendarData.TYPE_PRODUCE.equals(note.type) || CalendarData.TYPE_FRUIT.equals(note.type)) continue;
             TextView chip = new TextView(this);
             chip.setText(shortChip(note));
             chip.setTextSize(9);
@@ -226,9 +247,7 @@ public class MainActivity extends android.app.Activity {
         if (rows.isEmpty()) {
             section.addView(line(emptyText, Color.rgb(118, 128, 138), 14, false));
         } else {
-            for (String row : rows) {
-                section.addView(line(row, Color.rgb(34, 44, 52), 15, false));
-            }
+            for (String row : rows) section.addView(line(row, Color.rgb(34, 44, 52), 15, false));
         }
         detailList.addView(section);
     }
@@ -236,9 +255,7 @@ public class MainActivity extends android.app.Activity {
     private void addInfoSection(String title, String[] rows) {
         LinearLayout section = card();
         section.addView(sectionTitle(title, Color.rgb(35, 100, 170)));
-        for (String row : rows) {
-            section.addView(line(row, Color.rgb(34, 44, 52), 15, false));
-        }
+        for (String row : rows) section.addView(line(row, Color.rgb(34, 44, 52), 15, false));
         detailList.addView(section);
     }
 
@@ -312,11 +329,8 @@ public class MainActivity extends android.app.Activity {
         form.addView(typeGroup);
 
         final int[] picked = {selectedDate.get(Calendar.MONTH) + 1, selectedDate.get(Calendar.DAY_OF_MONTH)};
-        TextView date = new TextView(this);
-        date.setText("日期：" + picked[0] + "月" + picked[1] + "日");
-        date.setTextSize(16);
-        date.setPadding(0, dp(12), 0, dp(12));
-        date.setOnClickListener(v -> showMonthDayPicker(date, picked));
+        TextView date = pickerLine("日期：" + picked[0] + "月" + picked[1] + "日");
+        date.setOnClickListener(v -> showMonthDayPicker(date, picked, "日期："));
         form.addView(date);
 
         new AlertDialog.Builder(this)
@@ -340,12 +354,8 @@ public class MainActivity extends android.app.Activity {
         form.setPadding(dp(18), dp(8), dp(18), 0);
 
         EditText fruitName = new EditText(this);
-        fruitName.setHint("水果名称，例如：水蜜桃");
+        fruitName.setHint("水果或品种名称，例如：阳山水蜜桃");
         form.addView(fruitName);
-
-        EditText variety = new EditText(this);
-        variety.setHint("品种，例如：阳山水蜜桃");
-        form.addView(variety);
 
         final int[] start = {6, 1};
         final int[] end = {8, 31};
@@ -362,10 +372,8 @@ public class MainActivity extends android.app.Activity {
                 .setNegativeButton("取消", null)
                 .setPositiveButton("保存", (dialog, which) -> {
                     String fruit = fruitName.getText().toString().trim();
-                    String varietyText = variety.getText().toString().trim();
                     if (fruit.isEmpty()) fruit = "水果";
-                    if (varietyText.isEmpty()) varietyText = "默认品种";
-                    fruits.add(new FruitItem(fruit, varietyText, start[0], start[1], end[0], end[1], true));
+                    fruits.add(new FruitItem(fruit, start[0], start[1], end[0], end[1], true));
                     fruitStore.save(fruits);
                     Toast.makeText(this, "已关注水果", Toast.LENGTH_SHORT).show();
                     render();
@@ -381,10 +389,6 @@ public class MainActivity extends android.app.Activity {
         return view;
     }
 
-    private void showMonthDayPicker(TextView target, int[] picked) {
-        showMonthDayPicker(target, picked, "日期：");
-    }
-
     private void showMonthDayPicker(TextView target, int[] picked, String prefix) {
         new DatePickerDialog(this, (picker, year, month, dayOfMonth) -> {
             picked[0] = month + 1;
@@ -393,16 +397,100 @@ public class MainActivity extends android.app.Activity {
         }, 2026, picked[0] - 1, picked[1]).show();
     }
 
+    private void exportBackup() {
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_TITLE, "daily-calendar-backup.json");
+        startActivityForResult(intent, REQ_EXPORT_BACKUP);
+    }
+
+    private void importBackup() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        startActivityForResult(intent, REQ_IMPORT_BACKUP);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        Uri uri = data.getData();
+        try {
+            if (requestCode == REQ_EXPORT_BACKUP) {
+                writeBackup(uri);
+                Toast.makeText(this, "备份已导出", Toast.LENGTH_SHORT).show();
+            } else if (requestCode == REQ_IMPORT_BACKUP) {
+                readBackup(uri);
+                Toast.makeText(this, "备份已导入", Toast.LENGTH_SHORT).show();
+                render();
+            }
+        } catch (Exception exception) {
+            Toast.makeText(this, "操作失败：" + exception.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void writeBackup(Uri uri) throws Exception {
+        OutputStream output = getContentResolver().openOutputStream(uri);
+        if (output == null) throw new Exception("无法写入文件");
+        output.write(BackupData.exportJson(events, fruits).getBytes("UTF-8"));
+        output.close();
+    }
+
+    private void readBackup(Uri uri) throws Exception {
+        InputStream input = getContentResolver().openInputStream(uri);
+        if (input == null) throw new Exception("无法读取文件");
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        byte[] bytes = new byte[4096];
+        int read;
+        while ((read = input.read(bytes)) != -1) buffer.write(bytes, 0, read);
+        input.close();
+        BackupData.Result result = BackupData.importJson(new String(buffer.toByteArray(), "UTF-8"));
+        events = result.events;
+        fruits = result.fruits;
+        eventStore.save(events);
+        fruitStore.save(fruits);
+    }
+
+    private boolean handleSwipe(View view, MotionEvent event) {
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            downX = event.getX();
+            downY = event.getY();
+            return false;
+        }
+        if (event.getAction() == MotionEvent.ACTION_UP) {
+            float deltaX = event.getX() - downX;
+            float deltaY = event.getY() - downY;
+            if (Math.abs(deltaX) > dp(70) && Math.abs(deltaX) > Math.abs(deltaY) * 1.4f) {
+                moveMonth(deltaX < 0 ? 1 : -1);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void moveMonth(int delta) {
+        visibleMonth.add(Calendar.MONTH, delta);
+        selectedDate.setTime(visibleMonth.getTime());
+        selectedDate.set(Calendar.DAY_OF_MONTH, Math.min(selectedDate.get(Calendar.DAY_OF_MONTH), visibleMonth.getActualMaximum(Calendar.DAY_OF_MONTH)));
+        render();
+    }
+
+    private boolean hasFruitInSeason(Calendar date) {
+        for (FruitItem fruit : fruits) {
+            if (fruit.favorite && fruit.isInSeason(date)) return true;
+        }
+        return false;
+    }
+
     private String shortChip(DayNote note) {
-        if (CalendarData.TYPE_FRUIT.equals(note.type)) return "水果上市";
         return note.text.replace("休假", "").replace("调休上班", "班");
     }
 
     private int cellBackground(Calendar date) {
-        boolean selected = sameDay(date, selectedDate);
-        boolean today = sameDay(date, Calendar.getInstance());
-        if (selected) return Color.rgb(219, 235, 255);
-        if (today) return Color.rgb(255, 244, 219);
+        if (sameDay(date, selectedDate)) return Color.rgb(219, 235, 255);
+        if (sameDay(date, Calendar.getInstance())) return Color.rgb(255, 244, 219);
         return Color.WHITE;
     }
 
@@ -431,7 +519,7 @@ public class MainActivity extends android.app.Activity {
     private Button actionButton(String text) {
         Button button = new Button(this);
         button.setText(text);
-        button.setTextSize(14);
+        button.setTextSize(13);
         button.setTextColor(Color.rgb(35, 100, 170));
         return button;
     }

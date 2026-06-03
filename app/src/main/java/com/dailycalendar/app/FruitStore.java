@@ -50,14 +50,14 @@ class FruitStore {
 
     private ArrayList<FruitItem> defaults() {
         ArrayList<FruitItem> fruits = new ArrayList<>();
-        fruits.add(new FruitItem("水蜜桃", "奉化水蜜桃", 7, 1, 8, 20, true));
-        fruits.add(new FruitItem("水蜜桃", "阳山水蜜桃", 6, 20, 8, 15, true));
-        fruits.add(new FruitItem("榴莲", "猫山王", 6, 1, 9, 30, true));
-        fruits.add(new FruitItem("榴莲", "金枕", 4, 15, 8, 31, true));
-        fruits.add(new FruitItem("荔枝", "妃子笑", 5, 20, 6, 25, true));
-        fruits.add(new FruitItem("荔枝", "桂味", 6, 15, 7, 10, true));
-        fruits.add(new FruitItem("枇杷", "白沙枇杷", 4, 20, 5, 25, true));
-        fruits.add(new FruitItem("枇杷", "大五星枇杷", 5, 1, 6, 10, true));
+        fruits.add(new FruitItem("奉化水蜜桃", 7, 1, 8, 20, true));
+        fruits.add(new FruitItem("阳山水蜜桃", 6, 20, 8, 15, true));
+        fruits.add(new FruitItem("猫山王榴莲", 6, 1, 9, 30, true));
+        fruits.add(new FruitItem("金枕榴莲", 4, 15, 8, 31, true));
+        fruits.add(new FruitItem("妃子笑荔枝", 5, 20, 6, 25, true));
+        fruits.add(new FruitItem("桂味荔枝", 6, 15, 7, 10, true));
+        fruits.add(new FruitItem("白沙枇杷", 4, 20, 5, 25, true));
+        fruits.add(new FruitItem("大五星枇杷", 5, 1, 6, 10, true));
         return fruits;
     }
 }

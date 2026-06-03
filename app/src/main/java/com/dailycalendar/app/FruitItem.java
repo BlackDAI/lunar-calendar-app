@@ -6,17 +6,15 @@ import org.json.JSONObject;
 import java.util.Calendar;
 
 class FruitItem {
-    final String fruit;
-    final String variety;
+    final String name;
     final int startMonth;
     final int startDay;
     final int endMonth;
     final int endDay;
     final boolean favorite;
 
-    FruitItem(String fruit, String variety, int startMonth, int startDay, int endMonth, int endDay, boolean favorite) {
-        this.fruit = fruit;
-        this.variety = variety;
+    FruitItem(String name, int startMonth, int startDay, int endMonth, int endDay, boolean favorite) {
+        this.name = name;
         this.startMonth = startMonth;
         this.startDay = startDay;
         this.endMonth = endMonth;
@@ -36,14 +34,9 @@ class FruitItem {
         return startMonth + "月" + startDay + "日 - " + endMonth + "月" + endDay + "日";
     }
 
-    String title() {
-        return fruit + " · " + variety;
-    }
-
     JSONObject toJson() throws JSONException {
         JSONObject object = new JSONObject();
-        object.put("fruit", fruit);
-        object.put("variety", variety);
+        object.put("name", name);
         object.put("startMonth", startMonth);
         object.put("startDay", startDay);
         object.put("endMonth", endMonth);
@@ -53,9 +46,14 @@ class FruitItem {
     }
 
     static FruitItem fromJson(JSONObject object) {
+        String name = object.optString("name", "");
+        if (name.isEmpty()) {
+            String variety = object.optString("variety", "");
+            String fruit = object.optString("fruit", "水果");
+            name = variety.isEmpty() ? fruit : variety;
+        }
         return new FruitItem(
-                object.optString("fruit", "水果"),
-                object.optString("variety", "默认品种"),
+                name,
                 object.optInt("startMonth", 1),
                 object.optInt("startDay", 1),
                 object.optInt("endMonth", 12),

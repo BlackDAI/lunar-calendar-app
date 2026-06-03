@@ -123,7 +123,7 @@ class CalendarData {
 
         for (FruitItem fruit : fruits) {
             if (fruit.favorite && fruit.isInSeason(date)) {
-                notes.add(new DayNote(TYPE_FRUIT, fruit.title() + "已上市，可购买（" + fruit.seasonText() + "）"));
+                notes.add(new DayNote(TYPE_FRUIT, fruit.name + "：已上市，可购买（" + fruit.seasonText() + "）"));
             }
         }
         return notes;
