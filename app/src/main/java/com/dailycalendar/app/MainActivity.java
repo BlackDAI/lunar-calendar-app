@@ -99,8 +99,8 @@ public class MainActivity extends android.app.Activity {
         });
         Button addEvent = actionButton("+日程");
         addEvent.setOnClickListener(v -> showAddEventDialog());
-        Button addFruit = actionButton("+水果");
-        addFruit.setOnClickListener(v -> showAddFruitDialog());
+        Button addFruit = actionButton("水果");
+        addFruit.setOnClickListener(v -> showFruitManagerDialog());
         Button backup = actionButton("备份");
         backup.setOnClickListener(v -> exportBackup());
         Button restore = actionButton("导入");
@@ -349,33 +349,107 @@ public class MainActivity extends android.app.Activity {
     }
 
     private void showAddFruitDialog() {
+        showFruitEditorDialog(-1);
+    }
+
+    private void showFruitManagerDialog() {
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(dp(10), dp(4), dp(10), 0);
+
+        if (fruits.isEmpty()) {
+            list.addView(line("还没有关注水果", Color.rgb(118, 128, 138), 15, false));
+        } else {
+            for (int i = 0; i < fruits.size(); i++) {
+                FruitItem fruit = fruits.get(i);
+                final int index = i;
+                LinearLayout row = new LinearLayout(this);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setPadding(0, dp(6), 0, dp(6));
+
+                TextView info = new TextView(this);
+                info.setText(fruit.name + "\n" + fruit.seasonText());
+                info.setTextSize(15);
+                info.setTextColor(Color.rgb(34, 44, 52));
+                row.addView(info, new LinearLayout.LayoutParams(0, -2, 1));
+
+                Button edit = actionButton("改");
+                edit.setOnClickListener(v -> showFruitEditorDialog(index));
+                Button delete = actionButton("删");
+                delete.setTextColor(Color.rgb(191, 67, 91));
+                delete.setOnClickListener(v -> confirmDeleteFruit(index));
+                row.addView(edit, new LinearLayout.LayoutParams(dp(48), dp(38)));
+                row.addView(delete, new LinearLayout.LayoutParams(dp(48), dp(38)));
+                list.addView(row);
+            }
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("关注水果")
+                .setView(list)
+                .setNegativeButton("关闭", null)
+                .setPositiveButton("新增", (dialog, which) -> showAddFruitDialog())
+                .show();
+    }
+
+    private void confirmDeleteFruit(int index) {
+        if (index < 0 || index >= fruits.size()) return;
+        FruitItem fruit = fruits.get(index);
+        new AlertDialog.Builder(this)
+                .setTitle("删除关注水果")
+                .setMessage("确定删除“" + fruit.name + "”吗？")
+                .setNegativeButton("取消", null)
+                .setPositiveButton("删除", (dialog, which) -> {
+                    fruits.remove(index);
+                    fruitStore.save(fruits);
+                    Toast.makeText(this, "已删除", Toast.LENGTH_SHORT).show();
+                    render();
+                    showFruitManagerDialog();
+                })
+                .show();
+    }
+
+    private void showFruitEditorDialog(int editIndex) {
+        FruitItem editing = editIndex >= 0 && editIndex < fruits.size() ? fruits.get(editIndex) : null;
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(18), dp(8), dp(18), 0);
 
         EditText fruitName = new EditText(this);
         fruitName.setHint("水果或品种名称，例如：阳山水蜜桃");
+        if (editing != null) fruitName.setText(editing.name);
         form.addView(fruitName);
 
-        final int[] start = {6, 1};
-        final int[] end = {8, 31};
-        TextView startView = pickerLine("上市开始：6月1日");
-        TextView endView = pickerLine("上市结束：8月31日");
+        final int[] start = {
+                editing == null ? 6 : editing.startMonth,
+                editing == null ? 1 : editing.startDay
+        };
+        final int[] end = {
+                editing == null ? 8 : editing.endMonth,
+                editing == null ? 31 : editing.endDay
+        };
+        TextView startView = pickerLine("上市开始：" + start[0] + "月" + start[1] + "日");
+        TextView endView = pickerLine("上市结束：" + end[0] + "月" + end[1] + "日");
         startView.setOnClickListener(v -> showMonthDayPicker(startView, start, "上市开始："));
         endView.setOnClickListener(v -> showMonthDayPicker(endView, end, "上市结束："));
         form.addView(startView);
         form.addView(endView);
 
         new AlertDialog.Builder(this)
-                .setTitle("新增关注水果")
+                .setTitle(editing == null ? "新增关注水果" : "修改关注水果")
                 .setView(form)
                 .setNegativeButton("取消", null)
                 .setPositiveButton("保存", (dialog, which) -> {
                     String fruit = fruitName.getText().toString().trim();
                     if (fruit.isEmpty()) fruit = "水果";
-                    fruits.add(new FruitItem(fruit, start[0], start[1], end[0], end[1], true));
+                    FruitItem item = new FruitItem(fruit, start[0], start[1], end[0], end[1], true);
+                    if (editIndex >= 0 && editIndex < fruits.size()) {
+                        fruits.set(editIndex, item);
+                    } else {
+                        fruits.add(item);
+                    }
                     fruitStore.save(fruits);
-                    Toast.makeText(this, "已关注水果", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "已保存水果", Toast.LENGTH_SHORT).show();
                     render();
                 }).show();
     }
