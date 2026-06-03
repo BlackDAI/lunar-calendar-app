@@ -39,7 +39,7 @@ class UserEvent {
 
     static UserEvent fromJson(JSONObject object) {
         return new UserEvent(
-                object.optString("name", "生日"),
+                object.optString("name", "生日提醒"),
                 object.optString("type", SOLAR),
                 object.optInt("month", 1),
                 object.optInt("day", 1)

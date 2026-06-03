@@ -21,12 +21,8 @@ class EventStore {
     ArrayList<UserEvent> load() {
         ArrayList<UserEvent> events = new ArrayList<>();
         String raw = preferences.getString(KEY, "");
-        if (raw == null || raw.isEmpty()) {
-            events.add(new UserEvent("示例：农历生日", UserEvent.LUNAR, 6, 12));
-            events.add(new UserEvent("示例：公历生日", UserEvent.SOLAR, 10, 1));
-            save(events);
-            return events;
-        }
+        if (raw == null || raw.isEmpty()) return events;
+
         try {
             JSONArray array = new JSONArray(raw);
             for (int i = 0; i < array.length(); i++) {

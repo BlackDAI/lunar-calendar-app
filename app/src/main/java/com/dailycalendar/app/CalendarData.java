@@ -9,8 +9,9 @@ import java.util.Locale;
 import java.util.Map;
 
 class CalendarData {
-    static final String TYPE_EVENT = "生日";
+    static final String TYPE_EVENT = "日程";
     static final String TYPE_PRODUCE = "应季";
+    static final String TYPE_FRUIT = "水果";
     static final String TYPE_SOLAR_TERM = "节气";
     static final String TYPE_HOLIDAY = "节假日";
     static final String TYPE_WORKDAY = "调休";
@@ -80,9 +81,8 @@ class CalendarData {
             if (leap && lunarMonth == leapMonth + 1) leap = false;
         }
         if (offset == 0 && leapMonth > 0 && lunarMonth == leapMonth + 1) {
-            if (leap) {
-                leap = false;
-            } else {
+            if (leap) leap = false;
+            else {
                 leap = true;
                 lunarMonth--;
             }
@@ -94,7 +94,7 @@ class CalendarData {
         return new LunarDate(lunarYear, lunarMonth, offset + 1, leap);
     }
 
-    static List<DayNote> notesFor(Calendar date, List<UserEvent> events) {
+    static List<DayNote> notesFor(Calendar date, List<UserEvent> events, List<FruitItem> fruits) {
         ArrayList<DayNote> notes = new ArrayList<>();
         LunarDate lunar = toLunar(date);
         int solarMonth = date.get(Calendar.MONTH) + 1;
@@ -105,11 +105,9 @@ class CalendarData {
                 notes.add(new DayNote(TYPE_EVENT, event.display()));
             }
         }
+
         String lunarFestival = lunarFestival(lunar);
         if (!lunarFestival.isEmpty()) notes.add(new DayNote(TYPE_HOLIDAY, lunarFestival));
-
-        String produce = produceFor(lunar.month);
-        if (!produce.isEmpty()) notes.add(new DayNote(TYPE_PRODUCE, produce));
 
         String solarTerm = solarTermFor(key(date));
         if (!solarTerm.isEmpty()) notes.add(new DayNote(TYPE_SOLAR_TERM, solarTerm));
@@ -119,6 +117,15 @@ class CalendarData {
 
         String workday = workdayFor(key(date));
         if (!workday.isEmpty()) notes.add(new DayNote(TYPE_WORKDAY, workday));
+
+        String produce = produceFor(lunar.month);
+        if (!produce.isEmpty()) notes.add(new DayNote(TYPE_PRODUCE, produce));
+
+        for (FruitItem fruit : fruits) {
+            if (fruit.favorite && fruit.isInSeason(date)) {
+                notes.add(new DayNote(TYPE_FRUIT, fruit.title() + "已上市，可购买（" + fruit.seasonText() + "）"));
+            }
+        }
         return notes;
     }
 
@@ -128,18 +135,18 @@ class CalendarData {
 
     static String produceFor(int lunarMonth) {
         switch (lunarMonth) {
-            case 1: return "应季：菠菜、韭菜、草莓、柑橘";
-            case 2: return "应季：春笋、荠菜、豌豆苗、菠萝";
-            case 3: return "应季：香椿、芦笋、青团菜、枇杷";
-            case 4: return "应季：黄瓜、番茄、樱桃、桑葚";
-            case 5: return "应季：茄子、豆角、西瓜、杨梅";
-            case 6: return "应季：丝瓜、苦瓜、桃子、葡萄";
-            case 7: return "应季：莲藕、冬瓜、梨、无花果";
-            case 8: return "应季：南瓜、毛豆、石榴、柿子";
-            case 9: return "应季：山药、萝卜、苹果、猕猴桃";
-            case 10: return "应季：白菜、芥蓝、橙子、柚子";
-            case 11: return "应季：菜心、花菜、甘蔗、冬枣";
-            case 12: return "应季：白萝卜、菠菜、砂糖橘、苹果";
+            case 1: return "菠菜、韭菜、草莓、柑橘";
+            case 2: return "春笋、荠菜、豌豆苗、菠萝";
+            case 3: return "香椿、芦笋、青菜、枇杷";
+            case 4: return "黄瓜、番茄、樱桃、桑葚";
+            case 5: return "茄子、豆角、西瓜、杨梅";
+            case 6: return "丝瓜、苦瓜、桃子、葡萄";
+            case 7: return "莲藕、冬瓜、梨、无花果";
+            case 8: return "南瓜、毛豆、石榴、柿子";
+            case 9: return "山药、萝卜、苹果、猕猴桃";
+            case 10: return "白菜、芥蓝、橙子、柚子";
+            case 11: return "菜心、花菜、甘蔗、冬枣";
+            case 12: return "白萝卜、菠菜、砂糖橘、苹果";
             default: return "";
         }
     }
